@@ -1,0 +1,49 @@
+{
+  "name": "cortex-ai",
+  "version": "0.2.0",
+  "description": "AI Agent Orchestrator - Run AI workflows defined in YAML",
+  "keywords": [
+    "ai",
+    "agent",
+    "orchestrator",
+    "claude",
+    "workflow",
+    "automation",
+    "cli"
+  ],
+  "author": "Aditya Raj",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adityaraj/cortex.git"
+  },
+  "homepage": "https://github.com/adityaraj/cortex",
+  "bugs": {
+    "url": "https://github.com/adityaraj/cortex/issues"
+  },
+  "bin": {
+    "cortex": "./bin/cortex"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js",
+    "preuninstall": "node scripts/preuninstall.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}

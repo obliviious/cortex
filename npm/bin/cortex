@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+
+const BINARY_NAME = 'cortex';
+const ext = process.platform === 'win32' ? '.exe' : '';
+const binaryPath = path.join(__dirname, BINARY_NAME + ext);
+
+if (!fs.existsSync(binaryPath)) {
+  console.error('Cortex binary not found. Try reinstalling:');
+  console.error('  npm uninstall -g cortex-ai && npm install -g cortex-ai');
+  process.exit(1);
+}
+
+const child = spawn(binaryPath, process.argv.slice(2), {
+  stdio: 'inherit',
+  env: process.env,
+});
+
+child.on('error', (err) => {
+  console.error('Failed to start Cortex:', err.message);
+  process.exit(1);
+});
+
+child.on('close', (code) => {
+  process.exit(code || 0);
+});

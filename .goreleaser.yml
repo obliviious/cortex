@@ -1,0 +1,76 @@
+# GoReleaser configuration for Cortex
+# Run: goreleaser release --clean
+
+version: 2
+
+project_name: cortex
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: cortex
+    main: ./cmd/agentflow/
+    binary: cortex
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.buildTime={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - Cortexfile.yml
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+brews:
+  - name: cortex
+    repository:
+      owner: adityaraj
+      name: homebrew-tap
+    homepage: "https://github.com/adityaraj/cortex"
+    description: "AI Agent Orchestrator - Run AI workflows defined in YAML"
+    license: "MIT"
+    folder: Formula
+    install: |
+      bin.install "cortex"
+    test: |
+      system "#{bin}/cortex", "--version"
+
+release:
+  github:
+    owner: adityaraj
+    name: cortex
+  draft: false
+  prerelease: auto
+  name_template: "v{{.Version}}"

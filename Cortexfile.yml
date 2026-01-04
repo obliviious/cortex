@@ -1,0 +1,49 @@
+# Cortex Example Configuration
+# Run with: cortex run
+
+agents:
+  architect:
+    tool: claude-code
+    model: sonnet
+
+  reviewer:
+    tool: claude-code
+    model: sonnet
+
+  coder:
+    tool: claude-code
+    model: sonnet
+
+tasks:
+  analyze:
+    agent: architect
+    prompt: |
+      Analyze the current directory structure and codebase.
+      Identify the main components, patterns used, and suggest improvements.
+      Be concise and focus on actionable insights.
+
+  review:
+    agent: reviewer
+    prompt: |
+      Review the codebase for potential security issues and best practices.
+      Focus on:
+      - Input validation
+      - Error handling
+      - Dependency security
+      Provide a brief summary of findings.
+
+  implement:
+    agent: coder
+    needs: [analyze, review]
+    write: true
+    prompt: |
+      Based on the analysis and review:
+
+      ## Analysis Results:
+      {{outputs.analyze}}
+
+      ## Security Review:
+      {{outputs.review}}
+
+      Implement the top priority improvement suggested.
+      Make minimal, focused changes.

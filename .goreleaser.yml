@@ -1,8 +1,6 @@
 # GoReleaser configuration for Cortex
 # Run: goreleaser release --clean
 
-version: 2
-
 project_name: cortex
 
 before:

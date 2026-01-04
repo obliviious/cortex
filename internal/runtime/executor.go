@@ -91,7 +91,7 @@ func (e *Executor) executeSequential(ctx context.Context, plan *planner.Executio
 			runResult.Tasks = append(runResult.Tasks, *taskResult)
 			runResult.Success = false
 			runResult.EndTime = time.Now()
-			e.store.SaveRunResult(runResult)
+			_ = e.store.SaveRunResult(runResult)
 			return runResult, err
 		}
 
@@ -99,7 +99,7 @@ func (e *Executor) executeSequential(ctx context.Context, plan *planner.Executio
 	}
 
 	runResult.EndTime = time.Now()
-	e.store.SaveRunResult(runResult)
+	_ = e.store.SaveRunResult(runResult)
 
 	return runResult, nil
 }
@@ -191,13 +191,13 @@ func (e *Executor) executeParallel(ctx context.Context, plan *planner.ExecutionP
 
 		if firstErr != nil {
 			runResult.EndTime = time.Now()
-			e.store.SaveRunResult(runResult)
+			_ = e.store.SaveRunResult(runResult)
 			return runResult, firstErr
 		}
 	}
 
 	runResult.EndTime = time.Now()
-	e.store.SaveRunResult(runResult)
+	_ = e.store.SaveRunResult(runResult)
 
 	return runResult, nil
 }
@@ -209,7 +209,7 @@ func (e *Executor) executeTask(ctx context.Context, execTask planner.ExecutionTa
 	if agent == nil {
 		taskResult := state.NewTaskResult(execTask.Name, execTask.AgentName, execTask.Tool, execTask.Model, "")
 		taskResult.Complete("", fmt.Sprintf("no adapter for tool %q", execTask.Tool), 1, false)
-		e.store.SaveTaskResult(taskResult)
+		_ = e.store.SaveTaskResult(taskResult)
 		ui.PrintTaskStatus("Failed", false, "0s")
 		return taskResult, fmt.Errorf("no adapter registered for tool %q", execTask.Tool)
 	}
@@ -242,7 +242,7 @@ func (e *Executor) executeTask(ctx context.Context, execTask planner.ExecutionTa
 	result, err := agent.Run(ctx, task)
 	if err != nil {
 		taskResult.Complete("", err.Error(), 1, false)
-		e.store.SaveTaskResult(taskResult)
+		_ = e.store.SaveTaskResult(taskResult)
 		ui.PrintTaskStatus("Failed", false, taskResult.Duration)
 		if e.verbose {
 			fmt.Fprintf(e.writer, "  %sError:%s %s\n", ui.Dim, ui.Reset, err)

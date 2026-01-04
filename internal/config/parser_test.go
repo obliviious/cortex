@@ -453,7 +453,7 @@ func TestFindCortexfile(t *testing.T) {
 
 			// Verify the base name matches (case may vary on case-insensitive filesystems)
 			foundBasename := filepath.Base(foundPath)
-			if strings.ToLower(foundBasename) != strings.ToLower(tt.wantFileName) {
+			if !strings.EqualFold(foundBasename, tt.wantFileName) {
 				t.Errorf("expected basename %q, got %q", tt.wantFileName, foundBasename)
 			}
 

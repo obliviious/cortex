@@ -16,7 +16,6 @@ import (
 type Manager struct {
 	hooks   []config.WebhookConfig
 	client  *http.Client
-	mu      sync.Mutex
 	pending sync.WaitGroup
 }
 

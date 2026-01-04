@@ -39,11 +39,16 @@ var (
 )
 
 func main() {
+	versionStr := version
+	if buildTime != "unknown" {
+		versionStr = fmt.Sprintf("%s (built %s)", version, buildTime)
+	}
+
 	rootCmd := &cobra.Command{
 		Use:     "cortex",
 		Short:   "AI agent orchestrator",
 		Long:    "Cortex orchestrates AI agent workflows defined in YAML.",
-		Version: version,
+		Version: versionStr,
 	}
 
 	// Run command

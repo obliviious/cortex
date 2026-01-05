@@ -61,15 +61,15 @@ func PrintCompactBanner(version string) {
 
 // PrintSessionInfo prints session information
 func PrintSessionInfo(sessionID, outputDir string) {
-	fmt.Printf("  %sSession:%s %s\n", Dim, Reset, sessionID)
-
 	// Shorten the output path for display
 	homeDir, _ := os.UserHomeDir()
 	displayPath := outputDir
 	if homeDir != "" && len(outputDir) > len(homeDir) && outputDir[:len(homeDir)] == homeDir {
 		displayPath = "~" + outputDir[len(homeDir):]
 	}
-	fmt.Printf("  %sOutput:%s  %s\n", Dim, Reset, displayPath)
+
+	fmt.Printf("\n  %s○%s Session: %s\n", Orange, Reset, sessionID)
+	fmt.Printf("    %s→%s Output: %s\n", Orange, Reset, displayPath)
 	fmt.Println()
 }
 
@@ -80,29 +80,46 @@ func PrintDivider() {
 
 // PrintExecutionPlan prints the execution plan with colors
 func PrintExecutionPlan(tasks []TaskInfo) {
-	fmt.Printf("  %s%sExecution Plan%s\n", Bold, Orange, Reset)
-	fmt.Printf("  %s───────────────%s\n", Dim, Reset)
+	fmt.Printf("\n  %s%s◆ Execution Plan%s\n", Bold, Orange, Reset)
+	fmt.Printf("  %s─────────────────%s\n\n", Dim, Reset)
+
 	for i, task := range tasks {
-		deps := ""
+		// Task card with box drawing
+		fmt.Printf("  %s┌─%s %s%d%s %s│%s %s%s%s\n",
+			Orange, Reset,
+			Dim, i+1, Reset,
+			Orange, Reset,
+			Bold+Orange, task.Name, Reset,
+		)
+
+		// Dependencies if any
 		if len(task.Dependencies) > 0 {
-			deps = fmt.Sprintf(" %s← %v%s", Dim, task.Dependencies, Reset)
+			fmt.Printf("  %s│%s  %s↳ needs: %v%s\n",
+				Orange, Reset,
+				Dim, task.Dependencies, Reset,
+			)
 		}
-		fmt.Printf("  %s%d.%s %s%s%s\n",
-			Orange, i+1, Reset,
-			Bold, task.Name, Reset,
-		)
-		fmt.Printf("     %s%s%s %s· %s%s\n",
+
+		// Agent info
+		fmt.Printf("  %s│%s  %s◇%s %s%s%s\n",
+			Orange, Reset,
+			Dim, Reset,
 			Orange, task.Agent, Reset,
-			Dim, task.Tool, Reset,
 		)
+
+		// Tool and model
+		toolInfo := task.Tool
 		if task.Model != "" {
-			fmt.Printf("     %smodel: %s%s\n", Dim, task.Model, Reset)
+			toolInfo += " · " + task.Model
 		}
-		if deps != "" {
-			fmt.Printf("     %s\n", deps)
-		}
+		fmt.Printf("  %s│%s  %s◇%s %s%s%s\n",
+			Orange, Reset,
+			Dim, Reset,
+			Dim, toolInfo, Reset,
+		)
+
+		fmt.Printf("  %s└───────────────────%s\n\n", Orange, Reset)
 	}
-	fmt.Println()
 }
 
 // TaskInfo holds task display information

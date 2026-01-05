@@ -115,6 +115,41 @@ func Info(format string, args ...interface{}) {
 	fmt.Printf(OrangeText("ℹ ")+format+"\n", args...)
 }
 
+// Step prints a setup step with a dot indicator
+func Step(format string, args ...interface{}) {
+	fmt.Printf("  %s•%s %s"+format+"%s\n", Orange, Reset, Dim, Reset)
+}
+
+// StepDone prints a completed step
+func StepDone(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fmt.Printf("  %s✓%s %s\n", Green, Reset, msg)
+}
+
+// PrintSetupStart prints the setup section header
+func PrintSetupStart() {
+	fmt.Printf("\n  %s○%s Setup\n", Orange, Reset)
+}
+
+// PrintSetupStep prints a setup step with green tick
+func PrintSetupStep(text string) {
+	fmt.Printf("    %s✓%s %s\n", Green, Reset, text)
+}
+
+// PrintSetupEnd prints the setup section footer
+func PrintSetupEnd() {
+	// No footer needed for cleaner look
+}
+
+// PrintConfigInfo prints configuration summary
+func PrintConfigInfo(levels, maxParallel int, parallel bool) {
+	if parallel {
+		fmt.Printf("\n  %s⚡%s Parallel: %d levels, %d concurrent\n", Orange, Reset, levels, maxParallel)
+	} else {
+		fmt.Printf("\n  %s→%s Sequential execution\n", Orange, Reset)
+	}
+}
+
 // Task prints a task status
 func Task(name, status string, success bool) {
 	var statusColor string

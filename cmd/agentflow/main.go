@@ -227,13 +227,20 @@ func runSingleConfig(cmd *cobra.Command, configPath string) (bool, int, error) {
 	}
 
 	// Load local config from specified path
-	ui.Info("Loading %s", configPath)
+	// Shorten path for display
+	displayPath := configPath
+	if home, _ := os.UserHomeDir(); home != "" && len(configPath) > len(home) && configPath[:len(home)] == home {
+		displayPath = "~" + configPath[len(home):]
+	}
+
+	ui.PrintSetupStart()
+	ui.PrintSetupStep("Loading " + displayPath)
 	localCfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	ui.Info("Validating configuration...")
+	ui.PrintSetupStep("Validating configuration")
 	if err := config.ValidateWithFile(localCfg, configPath); err != nil {
 		return false, 0, err
 	}
@@ -263,7 +270,7 @@ func runSingleConfig(cmd *cobra.Command, configPath string) (bool, int, error) {
 	}
 
 	// Build execution plan
-	ui.Info("Building execution plan...")
+	ui.PrintSetupStep("Building execution plan")
 	plan, err := planner.BuildPlan(localCfg)
 	if err != nil {
 		ui.Error("Failed to build plan: %s", err)
@@ -271,19 +278,17 @@ func runSingleConfig(cmd *cobra.Command, configPath string) (bool, int, error) {
 	}
 
 	// Show execution mode
+	var levelCount, effectiveMax int
 	if useParallel {
 		levels := planner.BuildExecutionLevels(plan.DAG)
 		maxPar := planner.MaxParallelism(levels)
-		effectiveMax := merged.Settings.MaxParallel
+		effectiveMax = merged.Settings.MaxParallel
 		if effectiveMax > maxPar {
 			effectiveMax = maxPar
 		}
-		ui.Info("Parallel execution: %s%d%s levels, up to %s%d%s concurrent tasks",
-			ui.Orange, len(levels), ui.Reset,
-			ui.Orange, effectiveMax, ui.Reset)
-	} else {
-		ui.Info("Sequential execution mode")
+		levelCount = len(levels)
 	}
+	ui.PrintConfigInfo(levelCount, effectiveMax, useParallel)
 
 	// Convert plan to TaskInfo for display
 	taskInfos := make([]ui.TaskInfo, len(plan.Tasks))

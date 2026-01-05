@@ -159,8 +159,9 @@ func (a *Adapter) buildArgs(task runtime.Task) []string {
 
 	// Use stream-json for real-time streaming, text for buffered output
 	// Note: stream-json requires --verbose flag
+	// --include-partial-messages enables real-time character-by-character streaming
 	if a.streamLogs {
-		args = append(args, "--output-format", "stream-json", "--verbose")
+		args = append(args, "--output-format", "stream-json", "--verbose", "--include-partial-messages")
 	} else {
 		args = append(args, "--output-format", "text")
 	}
@@ -202,12 +203,44 @@ type streamMessage struct {
 	Type    string `json:"type"`
 	Subtype string `json:"subtype"`
 	Result  string `json:"result"`
+	// For stream_event messages (real-time streaming with --include-partial-messages)
+	Event *struct {
+		Type  string `json:"type"`
+		Index int    `json:"index"`
+		// For content_block_start (tool_use)
+		ContentBlock *struct {
+			Type string `json:"type"`
+			Name string `json:"name"`
+			ID   string `json:"id"`
+		} `json:"content_block"`
+		// For content_block_delta
+		Delta *struct {
+			Type        string `json:"type"`
+			Text        string `json:"text"`
+			PartialJSON string `json:"partial_json"`
+		} `json:"delta"`
+	} `json:"event"`
+	// For assistant messages (final complete message)
 	Message *struct {
 		Content []struct {
 			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
 	} `json:"message"`
+}
+
+// toolInput represents common tool input parameters
+type toolInput struct {
+	FilePath    string `json:"file_path"`
+	Path        string `json:"path"`
+	Pattern     string `json:"pattern"`
+	Command     string `json:"command"`
+	Description string `json:"description"`
+	Prompt      string `json:"prompt"`
+	Query       string `json:"query"`
+	URL         string `json:"url"`
+	OldString   string `json:"old_string"`
+	NewString   string `json:"new_string"`
 }
 
 // parseAndStreamNDJSON reads NDJSON from reader, streams text content to writer,
@@ -219,7 +252,9 @@ func (a *Adapter) parseAndStreamNDJSON(r io.Reader, w io.Writer) string {
 	scanner.Buffer(buf, 1024*1024)
 
 	var fullOutput strings.Builder
-	stripper := ui.NewMarkdownStripWriter(w)
+	var currentTool string
+	var toolInputJSON strings.Builder
+	var toolDisplayed bool
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -230,33 +265,177 @@ func (a *Adapter) parseAndStreamNDJSON(r io.Reader, w io.Writer) string {
 		var msg streamMessage
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
 			// Not valid JSON, might be raw text - write as-is
-			_, _ = stripper.Write([]byte(line + "\n"))
+			_, _ = w.Write([]byte(line + "\n"))
 			fullOutput.WriteString(line + "\n")
 			continue
 		}
 
-		// Handle assistant messages - content is in message.content[].text
-		if msg.Type == "assistant" && msg.Message != nil {
-			for _, content := range msg.Message.Content {
-				if content.Type == "text" && content.Text != "" {
-					_, _ = stripper.Write([]byte(content.Text))
-					fullOutput.WriteString(content.Text)
+		// Handle stream_event messages
+		if msg.Type == "stream_event" && msg.Event != nil {
+			// Tool use started
+			if msg.Event.Type == "content_block_start" && msg.Event.ContentBlock != nil {
+				if msg.Event.ContentBlock.Type == "tool_use" {
+					currentTool = msg.Event.ContentBlock.Name
+					toolInputJSON.Reset()
+					toolDisplayed = false
 				}
+			}
+
+			// Accumulate tool input JSON
+			if msg.Event.Type == "content_block_delta" && msg.Event.Delta != nil {
+				if msg.Event.Delta.Type == "input_json_delta" && msg.Event.Delta.PartialJSON != "" {
+					toolInputJSON.WriteString(msg.Event.Delta.PartialJSON)
+
+					// Try to display tool info early once we have enough data
+					if !toolDisplayed && currentTool != "" {
+						info := extractToolInfo(currentTool, toolInputJSON.String())
+						if info != "" {
+							// Tool info on new line with better formatting
+							toolMsg := fmt.Sprintf("\n%s  ⚡ %s%s %s%s%s", ui.Orange, currentTool, ui.Reset, ui.Dim, info, ui.Reset)
+							_, _ = w.Write([]byte(toolMsg))
+							// Show waiting indicator for Task tool (sub-agent)
+							if currentTool == "Task" {
+								_, _ = w.Write([]byte(fmt.Sprintf(" %s(running sub-agent...)%s", ui.Dim, ui.Reset)))
+							}
+							_, _ = w.Write([]byte("\n"))
+							toolDisplayed = true
+						}
+					}
+				}
+
+				// Text content delta (real-time streaming)
+				if msg.Event.Delta.Type == "text_delta" && msg.Event.Delta.Text != "" {
+					_, _ = w.Write([]byte(msg.Event.Delta.Text))
+					fullOutput.WriteString(msg.Event.Delta.Text)
+				}
+			}
+
+			// Tool use ended - show if not already displayed
+			if msg.Event.Type == "content_block_stop" && currentTool != "" {
+				if !toolDisplayed {
+					info := extractToolInfo(currentTool, toolInputJSON.String())
+					toolMsg := fmt.Sprintf("\n%s  ⚡ %s%s %s%s%s\n", ui.Orange, currentTool, ui.Reset, ui.Dim, info, ui.Reset)
+					_, _ = w.Write([]byte(toolMsg))
+				}
+				currentTool = ""
+				toolDisplayed = false
 			}
 		}
 
-		// Handle final result
+		// Handle final result (fallback if no streaming events received)
 		if msg.Type == "result" && msg.Result != "" {
-			// Only use result if we haven't accumulated content from assistant messages
+			// Only use result if we haven't accumulated content from stream events
 			if fullOutput.Len() == 0 {
-				_, _ = stripper.Write([]byte(msg.Result))
+				_, _ = w.Write([]byte(msg.Result))
 				fullOutput.WriteString(msg.Result)
 			}
 		}
 	}
 
-	_ = stripper.Flush()
 	return fullOutput.String()
+}
+
+// extractToolInfo extracts display info from tool input JSON
+func extractToolInfo(toolName, jsonStr string) string {
+	var input toolInput
+	if err := json.Unmarshal([]byte(jsonStr), &input); err != nil {
+		// Try to extract partial info from incomplete JSON
+		return extractPartialInfo(toolName, jsonStr)
+	}
+
+	switch toolName {
+	case "Read":
+		if input.FilePath != "" {
+			return shortenPath(input.FilePath)
+		}
+	case "Edit":
+		if input.FilePath != "" {
+			return shortenPath(input.FilePath)
+		}
+	case "Write":
+		if input.FilePath != "" {
+			return shortenPath(input.FilePath)
+		}
+	case "Glob":
+		if input.Pattern != "" {
+			return input.Pattern
+		}
+	case "Grep":
+		if input.Pattern != "" {
+			info := input.Pattern
+			if input.Path != "" {
+				info += " in " + shortenPath(input.Path)
+			}
+			return info
+		}
+	case "Bash":
+		if input.Command != "" {
+			cmd := input.Command
+			if len(cmd) > 50 {
+				cmd = cmd[:50] + "..."
+			}
+			return cmd
+		}
+	case "WebSearch":
+		if input.Query != "" {
+			return input.Query
+		}
+	case "WebFetch":
+		if input.URL != "" {
+			return input.URL
+		}
+	case "Task":
+		if input.Description != "" {
+			return input.Description
+		}
+	case "LSP":
+		if input.FilePath != "" {
+			return shortenPath(input.FilePath)
+		}
+	}
+	return ""
+}
+
+// extractPartialInfo tries to extract info from incomplete JSON
+func extractPartialInfo(toolName, jsonStr string) string {
+	// Look for common patterns in partial JSON
+	patterns := map[string]string{
+		"file_path\":\"": "file_path",
+		"path\":\"":      "path",
+		"pattern\":\"":   "pattern",
+		"command\":\"":   "command",
+		"query\":\"":     "query",
+	}
+
+	for pattern, _ := range patterns {
+		if idx := strings.Index(jsonStr, pattern); idx >= 0 {
+			start := idx + len(pattern)
+			end := strings.Index(jsonStr[start:], "\"")
+			if end > 0 && end < 100 {
+				value := jsonStr[start : start+end]
+				return shortenPath(value)
+			}
+		}
+	}
+	return ""
+}
+
+// shortenPath shortens a file path for display
+func shortenPath(path string) string {
+	// Remove home directory prefix
+	if home, err := os.UserHomeDir(); err == nil {
+		if strings.HasPrefix(path, home) {
+			path = "~" + path[len(home):]
+		}
+	}
+	// If still too long, show just the filename
+	if len(path) > 60 {
+		parts := strings.Split(path, "/")
+		if len(parts) > 2 {
+			path = ".../" + parts[len(parts)-2] + "/" + parts[len(parts)-1]
+		}
+	}
+	return path
 }
 
 // Check verifies that the claude CLI is available.

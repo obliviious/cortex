@@ -2,12 +2,15 @@
 package claude
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/adityaraj/agentflow/internal/runtime"
 	"github.com/adityaraj/agentflow/internal/ui"
@@ -76,36 +79,57 @@ func (a *Adapter) SetWorkdir(dir string) {
 // Run executes a task using the claude-code CLI.
 func (a *Adapter) Run(ctx context.Context, task runtime.Task) (runtime.Result, error) {
 	args := a.buildArgs(task)
-
 	cmd := exec.CommandContext(ctx, a.executable, args...)
 
-	var stdout, stderr bytes.Buffer
-	var stripper *ui.MarkdownStripWriter
-
+	// Streaming mode: use stream-json format and parse NDJSON in real-time
 	if a.streamLogs {
-		// Print visual separator before streaming
-		ui.PrintStreamStart()
-		// Use MarkdownStripWriter to strip markdown in real-time as output streams
-		stripper = ui.NewMarkdownStripWriter(os.Stdout)
-		cmd.Stdout = io.MultiWriter(stripper, &stdout)
-		cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
-	} else {
-		cmd.Stdout = &stdout
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return runtime.Result{}, fmt.Errorf("failed to create stdout pipe: %w", err)
+		}
+
+		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
+
+		if err := cmd.Start(); err != nil {
+			return runtime.Result{}, fmt.Errorf("failed to start claude: %w", err)
+		}
+
+		ui.PrintStreamStart()
+
+		// Parse NDJSON and stream text content in real-time
+		output := a.parseAndStreamNDJSON(stdout, os.Stdout)
+
+		ui.PrintStreamEnd()
+
+		err = cmd.Wait()
+
+		result := runtime.Result{
+			Stdout:   ui.StripMarkdown(output),
+			Stderr:   stderr.String(),
+			ExitCode: 0,
+			Success:  true,
+		}
+
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				result.ExitCode = exitErr.ExitCode()
+				result.Success = false
+			} else {
+				return result, fmt.Errorf("claude execution failed: %w", err)
+			}
+		}
+
+		return result, nil
 	}
+
+	// Non-streaming mode: use buffered text output
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
 	err := cmd.Run()
 
-	if a.streamLogs {
-		// Flush any remaining buffered content
-		if stripper != nil {
-			stripper.Flush()
-		}
-		// Print visual separator after streaming
-		ui.PrintStreamEnd()
-	}
-
-	// Strip markdown from stored output as well
 	cleanStdout := ui.StripMarkdown(stdout.String())
 
 	result := runtime.Result{
@@ -120,7 +144,6 @@ func (a *Adapter) Run(ctx context.Context, task runtime.Task) (runtime.Result, e
 			result.ExitCode = exitErr.ExitCode()
 			result.Success = false
 		} else {
-			// Command failed to start (e.g., binary not found)
 			return result, fmt.Errorf("failed to execute claude: %w", err)
 		}
 	}
@@ -131,8 +154,14 @@ func (a *Adapter) Run(ctx context.Context, task runtime.Task) (runtime.Result, e
 // buildArgs constructs the command-line arguments for claude.
 func (a *Adapter) buildArgs(task runtime.Task) []string {
 	args := []string{
-		"-p",                      // Print mode (non-interactive)
-		"--output-format", "text", // Plain text output
+		"-p", // SDK/headless mode
+	}
+
+	// Use stream-json for real-time streaming, text for buffered output
+	if a.streamLogs {
+		args = append(args, "--output-format", "stream-json")
+	} else {
+		args = append(args, "--output-format", "text")
 	}
 
 	// Add system prompt (use default if not overridden)
@@ -165,6 +194,51 @@ func (a *Adapter) buildArgs(task runtime.Task) []string {
 	args = append(args, task.Prompt)
 
 	return args
+}
+
+// streamMessage represents a single message in the NDJSON stream from Claude
+type streamMessage struct {
+	Type    string `json:"type"`
+	Content string `json:"content"`
+	Result  string `json:"result"`
+}
+
+// parseAndStreamNDJSON reads NDJSON from reader, streams text content to writer,
+// and returns the full accumulated output.
+func (a *Adapter) parseAndStreamNDJSON(r io.Reader, w io.Writer) string {
+	scanner := bufio.NewScanner(r)
+	var fullOutput strings.Builder
+	stripper := ui.NewMarkdownStripWriter(w)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		var msg streamMessage
+		if err := json.Unmarshal([]byte(line), &msg); err != nil {
+			// Not valid JSON, might be raw text - write as-is
+			_, _ = stripper.Write([]byte(line + "\n"))
+			fullOutput.WriteString(line + "\n")
+			continue
+		}
+
+		// Stream content in real-time as it arrives
+		if msg.Content != "" {
+			_, _ = stripper.Write([]byte(msg.Content))
+			fullOutput.WriteString(msg.Content)
+		}
+
+		// Capture final result (usually contains the complete response)
+		if msg.Result != "" && fullOutput.Len() == 0 {
+			// Only use result if we haven't accumulated content
+			fullOutput.WriteString(msg.Result)
+		}
+	}
+
+	_ = stripper.Flush()
+	return fullOutput.String()
 }
 
 // Check verifies that the claude CLI is available.

@@ -279,8 +279,8 @@ func runSingleConfig(cmd *cobra.Command, configPath string) (bool, int, error) {
 			effectiveMax = maxPar
 		}
 		ui.Info("Parallel execution: %s%d%s levels, up to %s%d%s concurrent tasks",
-			ui.BrightCyan, len(levels), ui.Reset,
-			ui.BrightCyan, effectiveMax, ui.Reset)
+			ui.Orange, len(levels), ui.Reset,
+			ui.Orange, effectiveMax, ui.Reset)
 	} else {
 		ui.Info("Sequential execution mode")
 	}
@@ -461,7 +461,7 @@ func listSessions(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("%s%sSessions%s (%d):\n\n", ui.Bold, ui.BrightCyan, ui.Reset, len(sessions))
+	fmt.Printf("%s%sSessions%s (%d):\n\n", ui.Bold, ui.Orange, ui.Reset, len(sessions))
 
 	for _, s := range sessions {
 		// Status indicator

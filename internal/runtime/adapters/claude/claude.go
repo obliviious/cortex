@@ -158,8 +158,9 @@ func (a *Adapter) buildArgs(task runtime.Task) []string {
 	}
 
 	// Use stream-json for real-time streaming, text for buffered output
+	// Note: stream-json requires --verbose flag
 	if a.streamLogs {
-		args = append(args, "--output-format", "stream-json")
+		args = append(args, "--output-format", "stream-json", "--verbose")
 	} else {
 		args = append(args, "--output-format", "text")
 	}
@@ -199,14 +200,24 @@ func (a *Adapter) buildArgs(task runtime.Task) []string {
 // streamMessage represents a single message in the NDJSON stream from Claude
 type streamMessage struct {
 	Type    string `json:"type"`
-	Content string `json:"content"`
+	Subtype string `json:"subtype"`
 	Result  string `json:"result"`
+	Message *struct {
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+	} `json:"message"`
 }
 
 // parseAndStreamNDJSON reads NDJSON from reader, streams text content to writer,
 // and returns the full accumulated output.
 func (a *Adapter) parseAndStreamNDJSON(r io.Reader, w io.Writer) string {
 	scanner := bufio.NewScanner(r)
+	// Increase scanner buffer for large JSON lines
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
 	var fullOutput strings.Builder
 	stripper := ui.NewMarkdownStripWriter(w)
 
@@ -224,16 +235,23 @@ func (a *Adapter) parseAndStreamNDJSON(r io.Reader, w io.Writer) string {
 			continue
 		}
 
-		// Stream content in real-time as it arrives
-		if msg.Content != "" {
-			_, _ = stripper.Write([]byte(msg.Content))
-			fullOutput.WriteString(msg.Content)
+		// Handle assistant messages - content is in message.content[].text
+		if msg.Type == "assistant" && msg.Message != nil {
+			for _, content := range msg.Message.Content {
+				if content.Type == "text" && content.Text != "" {
+					_, _ = stripper.Write([]byte(content.Text))
+					fullOutput.WriteString(content.Text)
+				}
+			}
 		}
 
-		// Capture final result (usually contains the complete response)
-		if msg.Result != "" && fullOutput.Len() == 0 {
-			// Only use result if we haven't accumulated content
-			fullOutput.WriteString(msg.Result)
+		// Handle final result
+		if msg.Type == "result" && msg.Result != "" {
+			// Only use result if we haven't accumulated content from assistant messages
+			if fullOutput.Len() == 0 {
+				_, _ = stripper.Write([]byte(msg.Result))
+				fullOutput.WriteString(msg.Result)
+			}
 		}
 	}
 

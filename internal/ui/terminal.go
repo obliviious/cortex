@@ -19,15 +19,14 @@ const (
 
 // TerminalController manages interactive terminal features
 type TerminalController struct {
-	mu           sync.RWMutex
-	mode         OutputMode
-	buffer       []byte
-	maxSummary   int  // Max lines to show in collapsed mode
-	isRawMode    bool
-	oldState     *term.State
-	toggleChan   chan struct{}
-	stopChan     chan struct{}
-	onToggle     func(OutputMode)
+	mu         sync.RWMutex
+	mode       OutputMode
+	maxSummary int // Max lines to show in collapsed mode
+	isRawMode  bool
+	oldState   *term.State
+	toggleChan chan struct{}
+	stopChan   chan struct{}
+	onToggle   func(OutputMode)
 }
 
 // NewTerminalController creates a new terminal controller
@@ -114,7 +113,7 @@ func (t *TerminalController) Stop() {
 
 	if t.isRawMode && t.oldState != nil {
 		close(t.stopChan)
-		term.Restore(int(os.Stdin.Fd()), t.oldState)
+		_ = term.Restore(int(os.Stdin.Fd()), t.oldState)
 		t.isRawMode = false
 	}
 }
@@ -142,7 +141,7 @@ func (t *TerminalController) listenKeys() {
 				// Send SIGINT to self
 				p, _ := os.FindProcess(os.Getpid())
 				if p != nil {
-					p.Signal(os.Interrupt)
+					_ = p.Signal(os.Interrupt)
 				}
 			}
 		}

@@ -30,18 +30,17 @@ var (
 )
 
 var (
-	configFile   string
-	configFiles  []string
-	verbose      bool
-	streamLogs   bool
-	noStream     bool
-	noColor      bool
-	compact      bool
-	parallel     bool
-	sequential   bool
-	maxParallel  int
-	fullOutput   bool
-	interactive  bool
+	configFiles []string
+	verbose     bool
+	streamLogs  bool
+	noStream    bool
+	noColor     bool
+	compact     bool
+	parallel    bool
+	sequential  bool
+	maxParallel int
+	fullOutput  bool
+	interactive bool
 )
 
 func main() {

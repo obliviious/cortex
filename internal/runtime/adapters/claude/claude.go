@@ -407,7 +407,7 @@ func extractPartialInfo(toolName, jsonStr string) string {
 		"query\":\"":     "query",
 	}
 
-	for pattern, _ := range patterns {
+	for pattern := range patterns {
 		if idx := strings.Index(jsonStr, pattern); idx >= 0 {
 			start := idx + len(pattern)
 			end := strings.Index(jsonStr[start:], "\"")

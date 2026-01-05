@@ -50,12 +50,14 @@ func (a *Adapter) Run(ctx context.Context, task runtime.Task) (runtime.Result, e
 	cmd := exec.CommandContext(ctx, a.executable, args...)
 
 	var stdout, stderr bytes.Buffer
+	var stripper *ui.MarkdownStripWriter
 
 	if a.streamLogs {
 		// Print visual separator before streaming
 		ui.PrintStreamStart()
-		// Stream to terminal AND capture for result
-		cmd.Stdout = io.MultiWriter(os.Stdout, &stdout)
+		// Use MarkdownStripWriter to strip markdown in real-time as output streams
+		stripper = ui.NewMarkdownStripWriter(os.Stdout)
+		cmd.Stdout = io.MultiWriter(stripper, &stdout)
 		cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
 	} else {
 		cmd.Stdout = &stdout
@@ -65,11 +67,15 @@ func (a *Adapter) Run(ctx context.Context, task runtime.Task) (runtime.Result, e
 	err := cmd.Run()
 
 	if a.streamLogs {
+		// Flush any remaining buffered content
+		if stripper != nil {
+			stripper.Flush()
+		}
 		// Print visual separator after streaming
 		ui.PrintStreamEnd()
 	}
 
-	// Strip markdown from output for cleaner display
+	// Strip markdown from stored output as well
 	cleanStdout := ui.StripMarkdown(stdout.String())
 
 	result := runtime.Result{

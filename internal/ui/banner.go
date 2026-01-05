@@ -25,22 +25,22 @@ func PrintBanner(version string) {
 
 	fmt.Println()
 
-	// Print banner with clean design
-	border := Blue + "  ╭────────────────────────────────────────────────────────╮" + Reset
-	borderB := Blue + "  ╰────────────────────────────────────────────────────────╯" + Reset
-	side := Blue + "  │" + Reset
-	sideEnd := Blue + "│" + Reset
+	// Print banner with clean design (Claude Orange theme)
+	border := Orange + "  ╭────────────────────────────────────────────────────────╮" + Reset
+	borderB := Orange + "  ╰────────────────────────────────────────────────────────╯" + Reset
+	side := Orange + "  │" + Reset
+	sideEnd := Orange + "│" + Reset
 
 	fmt.Println(border)
 	fmt.Println(side + "                                                          " + sideEnd)
-	fmt.Printf("%s   %s ██████╗ ██████╗ ██████╗ ████████╗███████╗██╗  ██╗%s      %s\n", side, Cyan+Bold, Reset, sideEnd)
-	fmt.Printf("%s   %s██╔════╝██╔═══██╗██╔══██╗╚══██╔══╝██╔════╝╚██╗██╔╝%s      %s\n", side, Cyan+Bold, Reset, sideEnd)
-	fmt.Printf("%s   %s██║     ██║   ██║██████╔╝   ██║   █████╗   ╚███╔╝%s       %s\n", side, Cyan+Bold, Reset, sideEnd)
-	fmt.Printf("%s   %s██║     ██║   ██║██╔══██╗   ██║   ██╔══╝   ██╔██╗%s       %s\n", side, Cyan+Bold, Reset, sideEnd)
-	fmt.Printf("%s   %s╚██████╗╚██████╔╝██║  ██║   ██║   ███████╗██╔╝ ██╗%s      %s\n", side, Cyan+Bold, Reset, sideEnd)
-	fmt.Printf("%s   %s ╚═════╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝%s      %s\n", side, Cyan+Bold, Reset, sideEnd)
+	fmt.Printf("%s   %s ██████╗ ██████╗ ██████╗ ████████╗███████╗██╗  ██╗%s      %s\n", side, Orange+Bold, Reset, sideEnd)
+	fmt.Printf("%s   %s██╔════╝██╔═══██╗██╔══██╗╚══██╔══╝██╔════╝╚██╗██╔╝%s      %s\n", side, Orange+Bold, Reset, sideEnd)
+	fmt.Printf("%s   %s██║     ██║   ██║██████╔╝   ██║   █████╗   ╚███╔╝%s       %s\n", side, Orange+Bold, Reset, sideEnd)
+	fmt.Printf("%s   %s██║     ██║   ██║██╔══██╗   ██║   ██╔══╝   ██╔██╗%s       %s\n", side, Orange+Bold, Reset, sideEnd)
+	fmt.Printf("%s   %s╚██████╗╚██████╔╝██║  ██║   ██║   ███████╗██╔╝ ██╗%s      %s\n", side, Orange+Bold, Reset, sideEnd)
+	fmt.Printf("%s   %s ╚═════╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝%s      %s\n", side, Orange+Bold, Reset, sideEnd)
 	fmt.Println(side + "                                                          " + sideEnd)
-	fmt.Printf("%s            %sAI Agent Orchestrator%s                      %s\n", side, Green, Reset, sideEnd)
+	fmt.Printf("%s            %sAI Agent Orchestrator%s                      %s\n", side, Dim, Reset, sideEnd)
 	fmt.Println(side + "                                                          " + sideEnd)
 	fmt.Println(borderB)
 
@@ -56,7 +56,7 @@ func PrintBanner(version string) {
 
 // PrintCompactBanner prints a minimal banner
 func PrintCompactBanner(version string) {
-	fmt.Printf("\n%s◆ Cortex%s v%s\n\n", Cyan+Bold, Reset, version)
+	fmt.Printf("\n%s◆ Cortex%s v%s\n\n", Orange+Bold, Reset, version)
 }
 
 // PrintSessionInfo prints session information
@@ -75,25 +75,25 @@ func PrintSessionInfo(sessionID, outputDir string) {
 
 // PrintDivider prints a horizontal divider
 func PrintDivider() {
-	fmt.Printf("\n%s─────────────────────────────────────────────%s\n", Blue, Reset)
+	fmt.Printf("\n%s─────────────────────────────────────────────%s\n", Dim, Reset)
 }
 
 // PrintExecutionPlan prints the execution plan with colors
 func PrintExecutionPlan(tasks []TaskInfo) {
-	fmt.Printf("  %s%sExecution Plan%s\n", Bold, Cyan, Reset)
-	fmt.Printf("  %s───────────────%s\n", Blue, Reset)
+	fmt.Printf("  %s%sExecution Plan%s\n", Bold, Orange, Reset)
+	fmt.Printf("  %s───────────────%s\n", Dim, Reset)
 	for i, task := range tasks {
 		deps := ""
 		if len(task.Dependencies) > 0 {
 			deps = fmt.Sprintf(" %s← %v%s", Dim, task.Dependencies, Reset)
 		}
 		fmt.Printf("  %s%d.%s %s%s%s\n",
-			White, i+1, Reset,
-			Bold+White, task.Name, Reset,
+			Orange, i+1, Reset,
+			Bold, task.Name, Reset,
 		)
-		fmt.Printf("     %s%s%s %s· %s%s%s\n",
-			Cyan, task.Agent, Reset,
-			Dim, Green, task.Tool, Reset,
+		fmt.Printf("     %s%s%s %s· %s%s\n",
+			Orange, task.Agent, Reset,
+			Dim, task.Tool, Reset,
 		)
 		if task.Model != "" {
 			fmt.Printf("     %smodel: %s%s\n", Dim, task.Model, Reset)
@@ -121,14 +121,14 @@ func PrintTaskStart(index, total int, name, agent, tool, model string) {
 		modelStr = " · " + model
 	}
 	fmt.Printf("\n%s┌─%s %s[%d/%d]%s %s%s%s\n",
-		Blue, Reset,
+		Orange, Reset,
 		Dim, index, total, Reset,
-		Bold+White, name, Reset,
+		Bold+Orange, name, Reset,
 	)
-	fmt.Printf("%s│%s  %s%s%s %s· %s%s%s%s\n",
-		Blue, Reset,
-		Cyan, agent, Reset,
-		Dim, Green, tool, modelStr, Reset,
+	fmt.Printf("%s│%s  %s%s%s %s· %s%s%s\n",
+		Orange, Reset,
+		Orange, agent, Reset,
+		Dim, tool, modelStr, Reset,
 	)
 }
 
@@ -140,12 +140,12 @@ func PrintTaskStatus(status string, success bool, duration string) {
 	} else {
 		statusStr = fmt.Sprintf("%s✗ %s%s %s(%s)%s", Red, status, Reset, Dim, duration, Reset)
 	}
-	fmt.Printf("%s└─%s %s\n", Blue, Reset, statusStr)
+	fmt.Printf("%s└─%s %s\n", Orange, Reset, statusStr)
 }
 
 // PrintTaskRunning prints running status
 func PrintTaskRunning() {
-	fmt.Printf("%s│%s  %s● Running...%s\n", Blue, Reset, Yellow, Reset)
+	fmt.Printf("%s│%s  %s● Running...%s\n", Orange, Reset, Orange, Reset)
 }
 
 // PrintSummary prints the final summary
@@ -178,12 +178,12 @@ func GetCortexHome() (string, error) {
 
 // PrintStreamStart prints a visual separator before streaming output
 func PrintStreamStart() {
-	fmt.Printf("%s│%s\n", Blue, Reset)
-	fmt.Printf("%s│%s  %sAgent output:%s\n", Blue, Reset, Dim, Reset)
-	fmt.Printf("%s│%s  %s─────────────%s\n", Blue, Reset, Dim, Reset)
+	fmt.Printf("%s│%s\n", Orange, Reset)
+	fmt.Printf("%s│%s  %sAgent output:%s\n", Orange, Reset, Dim, Reset)
+	fmt.Printf("%s│%s  %s─────────────%s\n", Orange, Reset, Dim, Reset)
 }
 
 // PrintStreamEnd prints a visual separator after streaming output
 func PrintStreamEnd() {
-	fmt.Printf("%s│%s  %s─────────────%s\n", Blue, Reset, Dim, Reset)
+	fmt.Printf("%s│%s  %s─────────────%s\n", Orange, Reset, Dim, Reset)
 }

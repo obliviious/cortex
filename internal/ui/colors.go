@@ -37,6 +37,9 @@ const (
 	BrightCyan    = "\033[96m"
 	BrightWhite   = "\033[97m"
 
+	// Custom colors (256-color mode)
+	Orange = "\033[38;5;208m" // Claude-like orange
+
 	// Background colors
 	BgBlack   = "\033[40m"
 	BgRed     = "\033[41m"
@@ -90,6 +93,7 @@ func BrightCyanText(text string) string    { return Colorize(BrightCyan, text) }
 func BrightGreenText(text string) string   { return Colorize(BrightGreen, text) }
 func BrightYellowText(text string) string  { return Colorize(BrightYellow, text) }
 func BrightMagentaText(text string) string { return Colorize(BrightMagenta, text) }
+func OrangeText(text string) string        { return Colorize(Orange, text) }
 
 // Success prints a success message
 func Success(format string, args ...interface{}) {
@@ -108,7 +112,7 @@ func Warning(format string, args ...interface{}) {
 
 // Info prints an info message
 func Info(format string, args ...interface{}) {
-	fmt.Printf(CyanText("ℹ ")+format+"\n", args...)
+	fmt.Printf(OrangeText("ℹ ")+format+"\n", args...)
 }
 
 // Task prints a task status

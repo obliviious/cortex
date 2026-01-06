@@ -42,12 +42,18 @@ func BuildPlan(cfg *config.AgentflowConfig) (*ExecutionPlan, error) {
 		taskCfg := cfg.Tasks[name]
 		agentCfg := cfg.Agents[taskCfg.Agent]
 
+		// For shell agents, use Command field; for AI agents, use Prompt
+		prompt := taskCfg.Prompt
+		if agentCfg.Tool == "shell" && taskCfg.Command != "" {
+			prompt = taskCfg.Command
+		}
+
 		tasks = append(tasks, ExecutionTask{
 			Name:         name,
 			AgentName:    taskCfg.Agent,
 			Tool:         agentCfg.Tool,
 			Model:        agentCfg.Model,
-			Prompt:       taskCfg.Prompt,
+			Prompt:       prompt,
 			Write:        taskCfg.Write,
 			Dependencies: taskCfg.Needs,
 			Workdir:      cfg.Workdir,

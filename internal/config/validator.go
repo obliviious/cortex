@@ -32,7 +32,7 @@ func ValidateWithFile(config *AgentflowConfig, filePath string) error {
 		if agent.Tool == "" {
 			errs.Add(NewConfigErrorWithHint(filePath, 0,
 				"agent \""+name+"\": tool is required",
-				"Add 'tool: claude-code' or 'tool: opencode'"))
+				"Add 'tool: claude-code', 'tool: opencode', or 'tool: shell'"))
 		} else if !IsSupportedTool(agent.Tool) {
 			errs.Add(ErrUnsupportedTool(filePath, 0, name, agent.Tool))
 		}
@@ -49,16 +49,44 @@ func ValidateWithFile(config *AgentflowConfig, filePath string) error {
 			errs.Add(ErrUndefinedAgent(filePath, 0, name, task.Agent, availableAgents))
 		}
 
-		// Check prompt (must have exactly one of prompt or prompt_file)
+		// Get agent tool type to determine validation rules
+		var agentTool string
+		if agent, exists := config.Agents[task.Agent]; exists {
+			agentTool = agent.Tool
+		}
+
+		// Check prompt/command based on agent type
 		hasPrompt := task.Prompt != ""
 		hasPromptFile := task.PromptFile != ""
-		if !hasPrompt && !hasPromptFile {
-			errs.Add(ErrNoPrompt(filePath, 0, name))
-		}
-		if hasPrompt && hasPromptFile {
-			errs.Add(NewConfigErrorWithHint(filePath, 0,
-				"task \""+name+"\": cannot have both 'prompt' and 'prompt_file'",
-				"Use either inline 'prompt:' or external 'prompt_file:', not both"))
+		hasCommand := task.Command != ""
+
+		if agentTool == "shell" {
+			// Shell agents require 'command' field
+			if !hasCommand {
+				errs.Add(NewConfigErrorWithHint(filePath, 0,
+					"task \""+name+"\": shell agent requires 'command' field",
+					"Add 'command: <shell_command>' to specify the command to run"))
+			}
+			if hasPrompt || hasPromptFile {
+				errs.Add(NewConfigErrorWithHint(filePath, 0,
+					"task \""+name+"\": shell agent should use 'command', not 'prompt' or 'prompt_file'",
+					"Replace 'prompt' or 'prompt_file' with 'command: <shell_command>'"))
+			}
+		} else {
+			// AI agents require prompt or prompt_file
+			if !hasPrompt && !hasPromptFile {
+				errs.Add(ErrNoPrompt(filePath, 0, name))
+			}
+			if hasPrompt && hasPromptFile {
+				errs.Add(NewConfigErrorWithHint(filePath, 0,
+					"task \""+name+"\": cannot have both 'prompt' and 'prompt_file'",
+					"Use either inline 'prompt:' or external 'prompt_file:', not both"))
+			}
+			if hasCommand {
+				errs.Add(NewConfigErrorWithHint(filePath, 0,
+					"task \""+name+"\": 'command' field is only for shell agents",
+					"Use 'prompt' or 'prompt_file' for AI agents, or change agent tool to 'shell'"))
+			}
 		}
 
 		// Check dependency references

@@ -24,6 +24,7 @@ type TaskConfig struct {
 	Agent      string     `yaml:"agent"`       // Reference to agent name in agents section
 	Prompt     string     `yaml:"prompt"`      // Inline prompt text (option A)
 	PromptFile string     `yaml:"prompt_file"` // Path to prompt file (option B)
+	Command    string     `yaml:"command"`     // Shell command to execute (for shell agents)
 	Needs      StringList `yaml:"needs"`       // Dependencies: single string or array
 	Write      bool       `yaml:"write"`       // Allow file writes (default: false)
 }
@@ -68,7 +69,7 @@ func (s *StringList) UnmarshalYAML(node *yaml.Node) error {
 }
 
 // SupportedTools lists all valid tool values for agents.
-var SupportedTools = []string{"claude-code", "opencode"}
+var SupportedTools = []string{"claude-code", "opencode", "shell"}
 
 // IsSupportedTool checks if a tool name is valid.
 func IsSupportedTool(tool string) bool {

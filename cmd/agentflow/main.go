@@ -18,6 +18,7 @@ import (
 	"github.com/adityaraj/agentflow/internal/runtime"
 	"github.com/adityaraj/agentflow/internal/runtime/adapters/claude"
 	"github.com/adityaraj/agentflow/internal/runtime/adapters/opencode"
+	"github.com/adityaraj/agentflow/internal/runtime/adapters/shell"
 	"github.com/adityaraj/agentflow/internal/state"
 	"github.com/adityaraj/agentflow/internal/ui"
 	"github.com/adityaraj/agentflow/internal/webhook"
@@ -113,10 +114,12 @@ func main() {
 
 	var initMinimal bool
 	var initMaster bool
+	var initGlobal bool
 	var initForce bool
 
 	initCmd.Flags().BoolVar(&initMinimal, "minimal", false, "Create a minimal template")
 	initCmd.Flags().BoolVar(&initMaster, "master", false, "Create a MasterCortex.yml instead")
+	initCmd.Flags().BoolVar(&initGlobal, "global", false, "Create global config at ~/.cortex/config.yml")
 	initCmd.Flags().BoolVar(&initForce, "force", false, "Overwrite existing file")
 
 	// Master command - run MasterCortex.yml
@@ -339,6 +342,10 @@ func runSingleConfig(cmd *cobra.Command, configPath string) (bool, int, error) {
 	opencodeAdapter := opencode.New()
 	opencodeAdapter.SetStreamLogs(merged.Settings.Stream)
 	registry.Register("opencode", opencodeAdapter)
+
+	shellAdapter := shell.New()
+	shellAdapter.SetStreamLogs(merged.Settings.Stream)
+	registry.Register("shell", shellAdapter)
 
 	// Create executor with config
 	executor := runtime.NewExecutorWithConfig(runtime.ExecutorConfig{
@@ -593,12 +600,29 @@ func containsGlobChars(s string) bool {
 func initCortexfile(cmd *cobra.Command, args []string) error {
 	minimal, _ := cmd.Flags().GetBool("minimal")
 	master, _ := cmd.Flags().GetBool("master")
+	global, _ := cmd.Flags().GetBool("global")
 	force, _ := cmd.Flags().GetBool("force")
 
 	var filename string
 	var content string
 
-	if master {
+	if global {
+		// Create global config in ~/.cortex/config.yml
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			ui.Error("Failed to get home directory: %s", err)
+			return err
+		}
+
+		cortexDir := filepath.Join(homeDir, ".cortex")
+		if err := os.MkdirAll(cortexDir, 0755); err != nil {
+			ui.Error("Failed to create ~/.cortex directory: %s", err)
+			return err
+		}
+
+		filename = filepath.Join(cortexDir, "config.yml")
+		content = config.GlobalConfigTemplate
+	} else if master {
 		filename = "MasterCortex.yml"
 		content = config.MasterCortexTemplate
 	} else if minimal {
@@ -623,12 +647,18 @@ func initCortexfile(cmd *cobra.Command, args []string) error {
 
 	ui.Success("Created %s", filename)
 	fmt.Printf("\n  %sNext steps:%s\n", ui.Bold, ui.Reset)
-	fmt.Printf("  1. Edit %s to define your workflow\n", filename)
-	if master {
-		fmt.Printf("  2. Run %scortex master%s to execute\n", ui.Bold, ui.Reset)
+
+	if global {
+		fmt.Printf("  1. Edit %s to set your defaults\n", filename)
+		fmt.Printf("  2. Settings will apply to all Cortex workflows\n")
 	} else {
-		fmt.Printf("  2. Run %scortex validate%s to check your config\n", ui.Bold, ui.Reset)
-		fmt.Printf("  3. Run %scortex run%s to execute\n", ui.Bold, ui.Reset)
+		fmt.Printf("  1. Edit %s to define your workflow\n", filename)
+		if master {
+			fmt.Printf("  2. Run %scortex master%s to execute\n", ui.Bold, ui.Reset)
+		} else {
+			fmt.Printf("  2. Run %scortex validate%s to check your config\n", ui.Bold, ui.Reset)
+			fmt.Printf("  3. Run %scortex run%s to execute\n", ui.Bold, ui.Reset)
+		}
 	}
 	fmt.Println()
 

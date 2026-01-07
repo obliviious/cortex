@@ -97,7 +97,6 @@ type ProgressBar struct {
 	current   int32
 	width     int
 	startTime time.Time
-	mu        sync.Mutex
 }
 
 // NewProgressBar creates a new progress bar

@@ -49,7 +49,7 @@ func (s *InteractiveSelector) Run() int {
 	if err != nil {
 		return 0
 	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
+	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
 
 	// Hide cursor
 	fmt.Print("\033[?25l")
@@ -75,7 +75,7 @@ func (s *InteractiveSelector) Run() int {
 				if n == 1 && buf[0] == 27 {
 					// Could be escape or start of arrow key sequence
 					// Try to read more
-					os.Stdin.Read(buf[1:])
+					_, _ = os.Stdin.Read(buf[1:])
 				}
 				if n == 1 && buf[0] == 3 {
 					s.clearDisplay()
@@ -108,7 +108,7 @@ func (s *InteractiveSelector) Run() int {
 		} else if n == 1 && buf[0] == 27 {
 			// Escape key pressed alone - read remaining bytes if any
 			remaining := make([]byte, 2)
-			os.Stdin.Read(remaining)
+			_, _ = os.Stdin.Read(remaining)
 			if remaining[0] == 91 {
 				switch remaining[1] {
 				case 65: // Up arrow

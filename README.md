@@ -28,6 +28,16 @@ Cortex is a powerful CLI tool that orchestrates AI agent workflows defined in YA
 
 ## Installation
 
+### Quick Install (ipm)
+
+```bash
+# Linux/macOS
+curl -L https://git.new/get-ipm | bash && ipm i obliviious/cortex
+
+# Windows
+iwr https://git.new/get-ipm-ps | iex; ipm i obliviious/cortex
+```
+
 ### npm (Recommended)
 
 ```bash
